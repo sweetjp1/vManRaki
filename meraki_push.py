@@ -4,6 +4,9 @@ import json
 import time
 import pandas as pd
 import numpy
+import re
+import ipaddress
+
 
 api_key = os.environ['MERAKI_DASHBOARD_API_KEY']
 org_id = os.environ['ORG_ID']
@@ -17,32 +20,39 @@ def createNetwork(dashboard, network):
 
     return network_id
 
-def addVlans(dashboard, network):
 
-    vlan = {
-        "id": "1234",
-        "name": "VLAN",
-        "subnet": "192.168.1.0/24",
-        "applianceIp": "192.168.1.2",
-    }
 
-    response = dashboard.appliance.createNetworkApplianceVlan(network, vlan['id'], vlan['name'], subnet=vlan['subnet'],applianceIp=vlan['applianceIp'])
+def addVlans(dashboard, network, vlan):
 
+#If interface ends in 0 assume loopback (Dangerous?)
+    if vlan['id'] != '0':
+        response = dashboard.appliance.createNetworkApplianceVlan(network, vlan['id'], vlan['name'], subnet=vlan['subnet'],applianceIp=vlan['applianceIp'])
+    else:
+        response = "Loopback" + vlan['id']
     return response
 
 def deployVlans(dashboard, networkid, interface):
     
+    #interface string is messy. pretty up for JSON load.
+    iface_json = json.loads(interface.replace('"','').replace("'", '"'))
 
-    iface_json = json.loads(f'"{interface}"')
+    #find interface number to use as VLANID, this needs to change to support subinterfaces.
+    pat = r"(\d+)(?=\D*$)"
+    vlan_id = re.search(pat, iface_json['int_id'])
 
-    print(json.dumps(iface_json, indent=2))
-    print('tricks')
+    #process IPs
+    process_iface = ipaddress.IPv4Interface(iface_json['int_ip'])
+    
+    #create vlan JSON
     vlan = {
 
-        interface['int_id'][-1]
+        "id": vlan_id[0],
+        "name": iface_json['int_desc'],
+        "subnet": format(process_iface.network),
+        "applianceIp": format(process_iface.ip)
 
     }
-
+    return vlan
 
 def deployNetworks(excel,dashboard):
     df = pd.read_excel(excel)
@@ -62,14 +72,25 @@ def deployNetworks(excel,dashboard):
                 productTypes = [ "appliance", "switch" ]
                 networkid = createNetwork(dashboard, network)
                 print(networkid + ": " + dev)
-            #deployVlans(dashboard, networkid, interface = row[1]['interfaces'])
+            vlan = deployVlans(dashboard, networkid, interface = row[1]['interfaces'])
+            addVlans(dashboard, networkid, vlan)
             currdev = dev
 
 
 
 def main():
+
+#    iface =  "{'vpn': '1', 'int_id': 'GigabitEthernet3', 'int_desc': 'port.dc-phys', 'int_ip': '10.10.20.182/24'}"
+#    print(json.dumps(iface,indent=2))
+
+#    vlan = deployVlans(dashboard, 0, iface)
+#    print(json.dumps(vlan,indent=2))
+#    addVlans(dashboard, 0, vlan)
+ 
+
     dashboard = meraki.DashboardAPI(api_key)
     deployNetworks('vEdgeDataPull.xlsx', dashboard)
+   
 
 
 def main_old():
