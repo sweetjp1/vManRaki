@@ -131,6 +131,7 @@ def iterateConfigs(base_url, header, dev_list):
 
 def main():
 
+    print('init - if this takes too long, can you reach vManage from this device?')
     #authenticate and generate a baseurl + headers
     logging.basicConfig(filename='grabber.log', level=logging.INFO)
     Auth = Authentication()
