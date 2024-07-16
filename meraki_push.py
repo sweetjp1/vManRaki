@@ -30,12 +30,46 @@ def addVlans(dashboard, network):
 
     return response
 
-def main():
-
-    df = pd.read_excel('vEdgeDataPull.xlsx')
+def deployVlans(dashboard, networkid, interface):
     
+
+    iface_json = json.loads(f'"{interface}"')
+
+    print(json.dumps(iface_json, indent=2))
+    print('tricks')
+    vlan = {
+
+        interface['int_id'][-1]
+
+    }
+
+
+def deployNetworks(excel,dashboard):
+    df = pd.read_excel(excel)
+    currdev = ""
+
     for row in df.iterrows():
-        print(row[1]['dev_name'])
+        if 'LAN' in row[1]['type']:
+            dev = row[1]['dev_name']
+            if currdev == "" or currdev != dev:
+                network ={
+                    "name" : dev,
+                    "productTypes": [
+                        "appliance",
+                        "switch"
+                    ],
+                }
+                productTypes = [ "appliance", "switch" ]
+                networkid = createNetwork(dashboard, network)
+                print(networkid + ": " + dev)
+            #deployVlans(dashboard, networkid, interface = row[1]['interfaces'])
+            currdev = dev
+
+
+
+def main():
+    dashboard = meraki.DashboardAPI(api_key)
+    deployNetworks('vEdgeDataPull.xlsx', dashboard)
 
 
 def main_old():
@@ -47,10 +81,6 @@ def main_old():
         "productTypes": [
             "appliance",
             "switch"
-        ],
-        "tags": [
-            "tag1",
-            "tag2"
         ],
         "timeZone": "America/Los_Angeles",
         "notes": "Additional description of the network"
